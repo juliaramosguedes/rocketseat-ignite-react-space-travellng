@@ -3,6 +3,8 @@ import Link from 'next/link';
 
 import { Post } from '../../pages';
 import styles from './post-card.module.scss';
+import commonStyles from '../../styles/common.module.scss';
+import Info from '../Info';
 
 export default function PostCard({
   uid,
@@ -17,15 +19,9 @@ export default function PostCard({
         </a>
       </Link>
       <p className={styles.subtitle}>{subtitle}</p>
-      <div className={styles.info}>
-        <div>
-          <FiCalendar />
-          <time>{first_publication_date}</time>
-        </div>
-        <div>
-          <FiUser />
-          {author}
-        </div>
+      <div className={commonStyles.infos}>
+        <Info icon={FiCalendar} text={first_publication_date} />
+        <Info icon={FiUser} text={author} />
       </div>
     </div>
   );

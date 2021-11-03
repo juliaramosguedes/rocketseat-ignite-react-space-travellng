@@ -70,6 +70,7 @@ export default function Home({ postsPagination }: HomeProps) {
           <button className={styles.button} onClick={loadMorePosts}>Carregar mais posts</button>
         )}
       </main>
+      <footer className={commonStyles.footer} />
     </>
   );
 }

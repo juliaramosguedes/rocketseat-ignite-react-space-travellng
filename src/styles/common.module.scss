@@ -2,3 +2,15 @@
   max-width: 721px;
   margin: 0 auto;
 }
+
+.infos {
+  display: flex;
+
+  > div + div {
+    margin-left: 1.333rem;
+  }
+}
+
+.footer {
+  margin-top: 4.444rem;
+}

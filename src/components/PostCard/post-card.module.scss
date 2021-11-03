@@ -11,18 +11,3 @@
   font-size: 1.125rem;
   margin-top: 0.444rem;
 }
-
-.info {
-  color: var(--info);
-  font-size: 0.875rem;
-  margin-top: 1.333rem;
-  display: flex;
-
-  > div + div {
-    margin-left: 1.333rem;
-  }
-
-  svg {
-    margin-right: 0.444rem;
-  }
-}
