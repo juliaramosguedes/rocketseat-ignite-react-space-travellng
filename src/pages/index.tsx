@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { GetStaticProps } from 'next';
 import Prismic from '@prismicio/client';
 import Head from 'next/head';
+import Link from 'next/link';
 
 import { getPrismicClient } from '../services/prismic';
 import commonStyles from '../styles/common.module.scss';
 import styles from './home.module.scss';
 import Header from '../components/Header';
 import PostCard from '../components/PostCard';
-import { formatPostsDate } from "../utils/format-posts-date";
+import { formatPostsDate } from '../utils/format-posts-date';
 
 export interface Post {
   uid?: string;
@@ -27,9 +28,10 @@ interface PostPagination {
 
 interface HomeProps {
   postsPagination: PostPagination;
+  preview: boolean;
 }
 
-export default function Home({ postsPagination }: HomeProps) {
+export default function Home({ postsPagination, preview }: HomeProps) {
   const [posts, setPosts] = useState<PostPagination>({
     ...postsPagination,
     results: formatPostsDate(postsPagination.results),
@@ -69,20 +71,29 @@ export default function Home({ postsPagination }: HomeProps) {
         {posts.next_page && (
           <button className={styles.button} onClick={loadMorePosts}>Carregar mais posts</button>
         )}
+        {preview && (
+          <aside>
+            <Link href="/api/exit-preview">
+              <a className={commonStyles.preview}>Sair do modo Preview</a>
+            </Link>
+          </aside>
+        )}
       </main>
       <footer className={commonStyles.footer} />
     </>
   );
 }
 
-
-
-export const getStaticProps: GetStaticProps = async () => {
+export const getStaticProps: GetStaticProps = async ({
+  preview = false,
+  previewData,
+}) => {
   const prismic = getPrismicClient();
   const postsResponse = await prismic.query(
     [Prismic.Predicates.at('document.type', 'post')],
     {
       pageSize: 2,
+      ref: previewData?.ref ?? null,
     }
   );
 
@@ -94,6 +105,7 @@ export const getStaticProps: GetStaticProps = async () => {
   return {
     props: {
       postsPagination,
+      preview,
     },
     revalidate: 60 * 5, // 5 minutes
   };
