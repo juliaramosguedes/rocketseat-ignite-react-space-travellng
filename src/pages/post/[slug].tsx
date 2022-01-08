@@ -1,22 +1,23 @@
 import { useMemo } from 'react';
-import { useRouter } from 'next/router';
 import { GetStaticPaths, GetStaticProps } from 'next';
+import { useRouter } from 'next/router';
+import Link from 'next/link';
 import Prismic from '@prismicio/client';
 import { RichText } from 'prismic-dom';
 import { FiCalendar, FiClock, FiUser } from 'react-icons/fi';
-import { format } from 'date-fns';
-import ptBR from 'date-fns/locale/pt-BR';
 
 import Head from 'next/head';
 import { getPrismicClient } from '../../services/prismic';
 import commonStyles from '../../styles/common.module.scss';
 import styles from './post.module.scss';
+import Comments from '../../components/Comments';
 import Header from '../../components/Header';
 import Info from '../../components/Info';
-import { formatDate } from "../../utils/format-posts-date";
+import { formatDate } from '../../utils/format-posts-date';
 
 interface Post {
   first_publication_date: string | null;
+  uid: string;
   data: {
     title: string;
     banner: {
@@ -32,21 +33,18 @@ interface Post {
   };
 }
 
-interface PostProps {
-  post: Post;
+interface Navigation {
+  prevPost: Post | null;
+  nextPost: Post | null;
 }
 
-export default function Post({
-  post: {
-    first_publication_date,
-    data: {
-      title,
-      content,
-      author,
-      banner: { url },
-    },
-  },
-}: PostProps) {
+interface PostProps {
+  post: Post;
+  preview: boolean;
+  navigation: Navigation;
+}
+
+export default function Post({ preview, post, navigation }: PostProps) {
   const router = useRouter();
 
   const readTime = useMemo(() => {
@@ -54,16 +52,16 @@ export default function Post({
       return 0;
     }
 
-    let fullText = '';
     const readWordsPerMinute = 200;
 
-    content.forEach(({ heading, body }) => {
-      fullText += heading;
-      fullText += RichText.asText(body);
-    });
+    const fullText = post?.data?.content?.reduce((acc, { heading, body }) => {
+      acc += heading;
+      acc += RichText.asText(body);
+      return acc;
+    }, '');
 
     return Math.ceil(fullText.split(/\s/g).length / readWordsPerMinute);
-  }, [content, router.isFallback]);
+  }, [post?.data?.content, router.isFallback]);
 
   if (router.isFallback) {
     return <p>Carregando...</p>;
@@ -72,19 +70,19 @@ export default function Post({
   return (
     <>
       <Head>
-        <title>{title} | SpaceTraveling</title>
+        <title>{post.data.title} | SpaceTraveling</title>
       </Head>
       <Header />
-      <img src={url} alt={title} />
+      <img src={post.data.banner.url} alt={post.data.title} />
       <article className={commonStyles.wrap}>
-        <h1 className={styles.title}>{title}</h1>
+        <h1 className={styles.title}>{post.data.title}</h1>
         <div className={commonStyles.infos}>
-          <Info icon={FiCalendar} text={formatDate(first_publication_date)} />
-          <Info icon={FiUser} text={author} />
+          <Info icon={FiCalendar} text={formatDate(post.first_publication_date)} />
+          <Info icon={FiUser} text={post.data.author} />
           <Info icon={FiClock} text={`${readTime} min`} />
         </div>
         <div>
-          {content.map(({ heading, body }) => {
+          {post.data.content.map(({ heading, body }) => {
             return (
               <div key={heading}>
                 <h2 className={styles.heading}>{heading}</h2>
@@ -99,6 +97,33 @@ export default function Post({
           })}
         </div>
       </article>
+      <section className={`${styles.navigation} ${commonStyles.wrap}`}>
+        {navigation.prevPost && (
+          <div>
+            <h3>{navigation.prevPost.data.title}</h3>
+            <Link href={`/post/${navigation.prevPost.uid}`}>
+              <a>Post anterior</a>
+            </Link>
+          </div>
+        )}
+        {navigation.nextPost && (
+          <div>
+            <h3>{navigation.nextPost.data.title}</h3>
+            <Link href={`/post/${navigation.nextPost.uid}`}>
+              <a>Próximo post</a>
+            </Link>
+          </div>
+        )}
+      </section>
+
+      <Comments />
+      {preview && (
+        <aside className={commonStyles.preview}>
+          <Link href="/api/exit-preview">
+            <a>Sair do modo Preview</a>
+          </Link>
+        </aside>
+      )}
       <footer className={commonStyles.footer} />
     </>
   );
@@ -123,14 +148,43 @@ export const getStaticPaths: GetStaticPaths = async () => {
   };
 };
 
-export const getStaticProps: GetStaticProps = async context => {
-  const { slug } = context.params;
+export const getStaticProps: GetStaticProps = async ({
+  params,
+  preview = false,
+  previewData,
+}) => {
+  const { slug } = params;
   const prismic = getPrismicClient();
-  const response = await prismic.getByUID('post', String(slug), {});
+  const response = await prismic.getByUID('post', String(slug), {
+    ref: previewData?.ref ?? null,
+  });
+
+  const prevPost = await prismic.query(
+    [Prismic.Predicates.at('document.type', 'post')],
+    {
+      pageSize: 1,
+      after: response.id,
+      orderings: '[document.first_publication_date desc]',
+    }
+  );
+
+  const nextPost = await prismic.query(
+    [Prismic.Predicates.at('document.type', 'post')],
+    {
+      pageSize: 1,
+      after: response.id,
+      orderings: '[document.first_publication_date]',
+    }
+  );
 
   return {
     props: {
       post: response,
+      preview,
+      navigation: {
+        nextPost: nextPost.results[0] ?? null,
+        prevPost: prevPost.results[0] ?? null,
+      },
     },
     revalidate: 60 * 5, // 5 minutes
   };
